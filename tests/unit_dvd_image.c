@@ -47,6 +47,36 @@ static void create_sparse_image_with_title(const char *path, const char *title, 
   assert(close(fd) == 0);
 }
 
+static int get_dvd_name_with_captured_stderr(const char *image_path, char *title, char *captured, size_t captured_size)
+{
+  FILE *tmp_stderr;
+  int saved_stderr_fd;
+  int rc;
+  size_t nread;
+
+  tmp_stderr = tmpfile();
+  assert(tmp_stderr != NULL);
+
+  saved_stderr_fd = dup(STDERR_FILENO);
+  assert(saved_stderr_fd >= 0);
+  assert(dup2(fileno(tmp_stderr), STDERR_FILENO) >= 0);
+
+  rc = get_dvd_name(image_path, title);
+
+  assert(fflush(stderr) == 0);
+  assert(dup2(saved_stderr_fd, STDERR_FILENO) >= 0);
+  assert(close(saved_stderr_fd) == 0);
+
+  if (captured_size > 0) {
+    rewind(tmp_stderr);
+    nread = fread(captured, 1, captured_size - 1, tmp_stderr);
+    captured[nread] = '\0';
+  }
+
+  assert(fclose(tmp_stderr) == 0);
+  return rc;
+}
+
 static void test_get_dvd_name_from_small_image(void)
 {
   char image_template[] = "/tmp/vobcopy-image-small-XXXXXX";
@@ -87,6 +117,7 @@ static void test_get_dvd_name_reports_error_on_too_small_image(void)
 {
   char image_template[] = "/tmp/vobcopy-image-tiny-XXXXXX";
   char title[64];
+  char stderr_output[512];
   int fd;
 
   fd = mkstemp(image_template);
@@ -94,7 +125,9 @@ static void test_get_dvd_name_reports_error_on_too_small_image(void)
   assert(write(fd, "tiny", 4) == 4);
   assert(close(fd) == 0);
 
-  assert(get_dvd_name(image_template, title) < 0);
+  assert(get_dvd_name_with_captured_stderr(image_template, title, stderr_output, sizeof(stderr_output)) < 0);
+  assert(strstr(stderr_output, "only read 4 bytes instead of 2048") != NULL);
+  assert(strstr(stderr_output, "error: Success") == NULL);
 
   assert(unlink(image_template) == 0);
 }

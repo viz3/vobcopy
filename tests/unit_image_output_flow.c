@@ -1,0 +1,118 @@
+#include <assert.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "dvd.h"
+
+#define main vobcopy_main
+#include "../vobcopy.c"
+#undef main
+
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+
+static void write_disc_title_block(const char *path, const char *title)
+{
+  int fd;
+  unsigned char block[2048];
+  size_t len;
+
+  memset(block, 0, sizeof(block));
+  memset(block + 40, ' ', 32);
+  len = strlen(title);
+  if (len > 32) len = 32;
+  memcpy(block + 40, title, len);
+
+  fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0600);
+  assert(fd >= 0);
+  assert(lseek(fd, 32768, SEEK_SET) == 32768);
+  assert(write(fd, block, sizeof(block)) == (ssize_t) sizeof(block));
+  assert(close(fd) == 0);
+}
+
+static void test_dummy_image_title_to_output_path(void)
+{
+  char image_template[] = "/tmp/vobcopy-flow-image-XXXXXX";
+  char output_dir_template[] = "/tmp/vobcopy-flow-output-XXXXXX";
+  char dvd_title[64];
+  char pwd[PATH_BUFFER_SIZE];
+  char out_name[PATH_BUFFER_SIZE];
+  char expected[PATH_BUFFER_SIZE];
+  int fd;
+
+  fd = mkstemp(image_template);
+  assert(fd >= 0);
+  assert(close(fd) == 0);
+
+  write_disc_title_block(image_template, "Flow Test Disc");
+  assert(get_dvd_name(image_template, dvd_title) == 0);
+  assert(strcmp(dvd_title, "Flow_Test_Disc") == 0);
+
+  assert(mkdtemp(output_dir_template) != NULL);
+  snprintf(pwd, sizeof(pwd), "%s/", output_dir_template);
+
+  assert(make_output_path(pwd, out_name, dvd_title, 2, 3) == 0);
+  snprintf(expected, sizeof(expected), "%s/%s2-3.vob", output_dir_template, dvd_title);
+  assert(strcmp(out_name, expected) == 0);
+
+  assert(unlink(image_template) == 0);
+  assert(rmdir(output_dir_template) == 0);
+}
+
+static void test_dummy_image_output_file_rename(void)
+{
+  char image_template[] = "/tmp/vobcopy-flow-image-rename-XXXXXX";
+  char output_dir_template[] = "/tmp/vobcopy-flow-output-rename-XXXXXX";
+  char dvd_title[64];
+  char pwd[PATH_BUFFER_SIZE];
+  char out_name[PATH_BUFFER_SIZE];
+  char partial_name[PATH_BUFFER_SIZE];
+  char content[6];
+  int fd;
+
+  fd = mkstemp(image_template);
+  assert(fd >= 0);
+  assert(close(fd) == 0);
+
+  write_disc_title_block(image_template, "Rename Disc");
+  assert(get_dvd_name(image_template, dvd_title) == 0);
+
+  assert(mkdtemp(output_dir_template) != NULL);
+  snprintf(pwd, sizeof(pwd), "%s/", output_dir_template);
+  assert(make_output_path(pwd, out_name, dvd_title, 1, 0) == 0);
+
+  snprintf(partial_name, sizeof(partial_name), "%s.partial", out_name);
+  fd = open(partial_name, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0600);
+  assert(fd >= 0);
+  assert(write(fd, "dummy", 5) == 5);
+  assert(close(fd) == 0);
+
+  re_name(partial_name);
+
+  assert(access(out_name, F_OK) == 0);
+  assert(access(partial_name, F_OK) != 0);
+
+  fd = open(out_name, O_RDONLY | O_BINARY);
+  assert(fd >= 0);
+  assert(read(fd, content, 5) == 5);
+  content[5] = '\0';
+  assert(strcmp(content, "dummy") == 0);
+  assert(close(fd) == 0);
+
+  assert(unlink(out_name) == 0);
+  assert(unlink(image_template) == 0);
+  assert(rmdir(output_dir_template) == 0);
+}
+
+int main(void)
+{
+  test_dummy_image_title_to_output_path();
+  test_dummy_image_output_file_rename();
+  return 0;
+}

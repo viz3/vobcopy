@@ -43,8 +43,24 @@ The test suite is integrated into Automake (`make check`) and currently has:
 - `tests/unit_dvd_image`: runtime-generated disk-image tests for dvd-name
   extraction from synthetic binary images (including a sparse large image),
   and error handling on too-small images.
+- `tests/unit_image_output_flow`: end-to-end unit flow using synthetic disk
+  images to verify that parsed disc titles are turned into the exact output
+  filenames used by vobcopy (`make_output_path`) and that completed `.partial`
+  files are promoted to final filenames (`re_name`) without data loss.
 - `tests/cli-smoke.sh`: command-line smoke tests for options that do not require
   a mounted DVD (`-V`, `-h`, and invalid argument validation).
+
+How the synthetic image tests work:
+- They create temporary files in `/tmp`, write a 2048-byte block at the disc
+  title offset (`32768` bytes, with title bytes at offset `40` inside the
+  block), and then call the real parsing code (`get_dvd_name`).
+- The "large image" case uses sparse files so no large real disk allocation is
+  required.
+- The "too-small image" case verifies that failure is detected for short reads
+  and that the emitted reason is the short read itself (without a misleading
+  `error: Success` line).
+- Output-file tests then feed parsed titles into vobcopy output-name logic and
+  verify exact filenames and `.partial` rename behavior using temporary files.
 
 Input from a file path is already supported via `-i`: when path/device auto-detection
 fails, vobcopy will try to open the provided `-i` value directly as a directory/image
