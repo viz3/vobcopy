@@ -7,8 +7,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "dvd.h"
-
 #define main vobcopy_main
 #include "../vobcopy.c"
 #undef main
@@ -72,8 +70,9 @@ static void test_dummy_image_output_file_rename(void)
   char dvd_title[64];
   char pwd[PATH_BUFFER_SIZE];
   char out_name[PATH_BUFFER_SIZE];
-  char partial_name[PATH_BUFFER_SIZE];
+  char partial_name[PATH_BUFFER_SIZE + 16];
   char content[6];
+  int missing_fd;
   int fd;
 
   fd = mkstemp(image_template);
@@ -95,8 +94,10 @@ static void test_dummy_image_output_file_rename(void)
 
   re_name(partial_name);
 
-  assert(access(out_name, F_OK) == 0);
-  assert(access(partial_name, F_OK) != 0);
+  errno = 0;
+  missing_fd = open(partial_name, O_RDONLY | O_BINARY);
+  assert(missing_fd < 0);
+  assert(errno == ENOENT);
 
   fd = open(out_name, O_RDONLY | O_BINARY);
   assert(fd >= 0);

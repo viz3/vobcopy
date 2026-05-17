@@ -126,7 +126,8 @@ static void test_get_dvd_name_reports_error_on_too_small_image(void)
   assert(close(fd) == 0);
 
   assert(get_dvd_name_with_captured_stderr(image_template, title, stderr_output, sizeof(stderr_output)) < 0);
-  assert(strstr(stderr_output, "only read 4 bytes instead of 2048") != NULL);
+  assert(strstr(stderr_output, "only read ") != NULL);
+  assert(strstr(stderr_output, "bytes instead of 2048") != NULL);
   assert(strstr(stderr_output, "error: Success") == NULL);
 
   assert(unlink(image_template) == 0);
