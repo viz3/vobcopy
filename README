@@ -37,6 +37,23 @@ and run the test suite with:
 
 $ make check
 
+To help debug test failures, two extra flags can be passed to all test programs
+via the TESTFLAGS make variable:
+
+  -v / --verbose      Print [verbose] progress lines (temp file paths, parsed
+                      values, each assertion reached) while running.
+  -k / --keep-temps   Do not delete temporary files and directories after the
+                      test; their paths are printed so you can inspect them.
+
+Examples:
+
+$ make check TESTFLAGS="-v"          # verbose output from all tests
+$ make check TESTFLAGS="-v -k"       # verbose + keep temp files for inspection
+
+The flags are also understood when running a test binary directly:
+
+$ ./tests/unit_dvd_image -v -k
+
 The test suite is integrated into Automake (`make check`) and currently has:
 - `tests/unit_helpers`: unit tests for helper/path logic (`safestrncpy`,
   `add_end_slash`, `sanitize_dvd_name`, and `get_fallback_dvd_name`).

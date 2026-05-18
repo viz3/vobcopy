@@ -10,6 +10,9 @@
 
 #include "vobcopy.h"
 
+#define TEST_HAS_TEMPS
+#include "testflags.h"
+
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
@@ -83,16 +86,20 @@ static void test_get_dvd_name_from_small_image(void)
   char title[64];
   int fd;
 
+  vlog("test_get_dvd_name_from_small_image: creating temp image");
   fd = mkstemp(image_template);
   assert(fd >= 0);
   assert(close(fd) == 0);
+  vlog("  temp image: %s", image_template);
 
   write_disc_title_block(image_template, "My Disk:Title");
+  vlog("  wrote title \"My Disk:Title\"");
 
   assert(get_dvd_name(image_template, title) == 0);
+  vlog("  get_dvd_name() => \"%s\"", title);
   assert(strcmp(title, "My_Disk_Title") == 0);
 
-  assert(unlink(image_template) == 0);
+  maybe_unlink(image_template);
 }
 
 static void test_get_dvd_name_from_large_sparse_image(void)
@@ -101,16 +108,20 @@ static void test_get_dvd_name_from_large_sparse_image(void)
   char title[64];
   int fd;
 
+  vlog("test_get_dvd_name_from_large_sparse_image: creating sparse temp image");
   fd = mkstemp(image_template);
   assert(fd >= 0);
   assert(close(fd) == 0);
+  vlog("  temp image: %s", image_template);
 
   create_sparse_image_with_title(image_template, "Large Test Disc", (off_t)6 * 1024 * 1024 * 1024);
+  vlog("  wrote title \"Large Test Disc\" (sparse 6 GB image)");
 
   assert(get_dvd_name(image_template, title) == 0);
+  vlog("  get_dvd_name() => \"%s\"", title);
   assert(strcmp(title, "Large_Test_Disc") == 0);
 
-  assert(unlink(image_template) == 0);
+  maybe_unlink(image_template);
 }
 
 static void test_get_dvd_name_reports_error_on_too_small_image(void)
@@ -120,21 +131,27 @@ static void test_get_dvd_name_reports_error_on_too_small_image(void)
   char stderr_output[512];
   int fd;
 
+  vlog("test_get_dvd_name_reports_error_on_too_small_image: creating 4-byte image");
   fd = mkstemp(image_template);
   assert(fd >= 0);
   assert(write(fd, "tiny", 4) == 4);
   assert(close(fd) == 0);
+  vlog("  temp image: %s", image_template);
 
   assert(get_dvd_name_with_captured_stderr(image_template, title, stderr_output, sizeof(stderr_output)) < 0);
+  vlog("  get_dvd_name() correctly returned error");
+  vlog("  captured stderr: %s", stderr_output);
   assert(strstr(stderr_output, "only read ") != NULL);
   assert(strstr(stderr_output, "bytes instead of 2048") != NULL);
   assert(strstr(stderr_output, "error: Success") == NULL);
 
-  assert(unlink(image_template) == 0);
+  maybe_unlink(image_template);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+  parse_testflags(argc, argv);
+
   test_get_dvd_name_from_small_image();
   test_get_dvd_name_from_large_sparse_image();
   test_get_dvd_name_reports_error_on_too_small_image();

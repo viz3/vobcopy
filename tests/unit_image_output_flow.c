@@ -11,6 +11,12 @@
 #include "../vobcopy.c"
 #undef main
 
+/* testflags.h must come after the vobcopy.c include so it does not interfere
+   with vobcopy's own compilation; all the system headers it needs are already
+   pulled in transitively. */
+#define TEST_HAS_TEMPS
+#include "testflags.h"
+
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
@@ -44,23 +50,30 @@ static void test_dummy_image_title_to_output_path(void)
   char expected[PATH_BUFFER_SIZE];
   int fd;
 
+  vlog("test_dummy_image_title_to_output_path: creating temp image");
   fd = mkstemp(image_template);
   assert(fd >= 0);
   assert(close(fd) == 0);
+  vlog("  temp image: %s", image_template);
 
   write_disc_title_block(image_template, "Flow Test Disc");
+  vlog("  wrote title \"Flow Test Disc\"");
+
   assert(get_dvd_name(image_template, dvd_title) == 0);
+  vlog("  get_dvd_name() => \"%s\"", dvd_title);
   assert(strcmp(dvd_title, "Flow_Test_Disc") == 0);
 
   assert(mkdtemp(output_dir_template) != NULL);
+  vlog("  output dir: %s", output_dir_template);
   snprintf(pwd, sizeof(pwd), "%s/", output_dir_template);
 
   assert(make_output_path(pwd, out_name, dvd_title, 2, 3) == 0);
+  vlog("  make_output_path(title=2 part=3) => \"%s\"", out_name);
   snprintf(expected, sizeof(expected), "%s/%s2-3.vob", output_dir_template, dvd_title);
   assert(strcmp(out_name, expected) == 0);
 
-  assert(unlink(image_template) == 0);
-  assert(rmdir(output_dir_template) == 0);
+  maybe_unlink(image_template);
+  maybe_rmdir(output_dir_template);
 }
 
 static void test_dummy_image_output_file_rename(void)
@@ -75,44 +88,57 @@ static void test_dummy_image_output_file_rename(void)
   int missing_fd;
   int fd;
 
+  vlog("test_dummy_image_output_file_rename: creating temp image");
   fd = mkstemp(image_template);
   assert(fd >= 0);
   assert(close(fd) == 0);
+  vlog("  temp image: %s", image_template);
 
   write_disc_title_block(image_template, "Rename Disc");
+  vlog("  wrote title \"Rename Disc\"");
+
   assert(get_dvd_name(image_template, dvd_title) == 0);
+  vlog("  get_dvd_name() => \"%s\"", dvd_title);
 
   assert(mkdtemp(output_dir_template) != NULL);
+  vlog("  output dir: %s", output_dir_template);
   snprintf(pwd, sizeof(pwd), "%s/", output_dir_template);
   assert(make_output_path(pwd, out_name, dvd_title, 1, 0) == 0);
+  vlog("  output path: %s", out_name);
 
   snprintf(partial_name, sizeof(partial_name), "%s.partial", out_name);
+  vlog("  creating partial file: %s", partial_name);
   fd = open(partial_name, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0600);
   assert(fd >= 0);
   assert(write(fd, "dummy", 5) == 5);
   assert(close(fd) == 0);
 
+  vlog("  calling re_name() to promote .partial to final name");
   re_name(partial_name);
 
   errno = 0;
   missing_fd = open(partial_name, O_RDONLY | O_BINARY);
   assert(missing_fd < 0);
   assert(errno == ENOENT);
+  vlog("  .partial file gone as expected");
 
   fd = open(out_name, O_RDONLY | O_BINARY);
   assert(fd >= 0);
   assert(read(fd, content, 5) == 5);
   content[5] = '\0';
+  vlog("  final file contents: \"%s\"", content);
   assert(strcmp(content, "dummy") == 0);
   assert(close(fd) == 0);
 
-  assert(unlink(out_name) == 0);
-  assert(unlink(image_template) == 0);
-  assert(rmdir(output_dir_template) == 0);
+  maybe_unlink(out_name);
+  maybe_unlink(image_template);
+  maybe_rmdir(output_dir_template);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+  parse_testflags(argc, argv);
+
   test_dummy_image_title_to_output_path();
   test_dummy_image_output_file_rename();
   return 0;
