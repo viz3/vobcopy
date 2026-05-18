@@ -15,6 +15,7 @@
    with vobcopy's own compilation; all the system headers it needs are already
    pulled in transitively. */
 #define TEST_HAS_TEMPS
+#define TEST_HAS_TEMP_DIRS
 #include "testflags.h"
 
 #ifndef O_BINARY

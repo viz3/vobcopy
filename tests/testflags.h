@@ -3,7 +3,9 @@
  *
  * Include this header in each test program.  When a test creates temporary
  * files, define TEST_HAS_TEMPS before including this header to enable the
- * --keep-temps flag and the maybe_unlink()/maybe_rmdir() helpers.
+ * --keep-temps flag and maybe_unlink().
+ * If a test also creates temp directories, additionally define
+ * TEST_HAS_TEMP_DIRS to enable maybe_rmdir().
  *
  * Recognised flags (passed via argv or the TESTFLAGS environment variable):
  *
@@ -48,6 +50,7 @@ static void maybe_unlink(const char *path)
     assert(unlink(path) == 0);
 }
 
+#ifdef TEST_HAS_TEMP_DIRS
 /*
  * Remove a temporary directory, or keep it if --keep-temps was given.
  */
@@ -58,6 +61,7 @@ static void maybe_rmdir(const char *path)
   else
     assert(rmdir(path) == 0);
 }
+#endif /* TEST_HAS_TEMP_DIRS */
 #endif /* TEST_HAS_TEMPS */
 
 /*
