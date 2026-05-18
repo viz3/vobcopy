@@ -21,6 +21,7 @@
 /tests/cli-smoke.trs
 /tests/unit_dvd_image
 /tests/unit_helpers
+/tests/unit_image_output_flow
 /vobcopy
 Makefile
 Makefile.in
